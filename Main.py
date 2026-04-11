@@ -97,7 +97,7 @@ def App_user_Data_Cleaning(df):
 
     app_df['rating_given'] = app_df['rating_given'].fillna(app_df['rating_given'].median())
         
-    def Outlier_Detection(df, numerical_cols_clip,numerical_cols_remove):
+    def Outlier_Detection(df, numerical_cols_clip):
         # Capping Outliers
         for col in numerical_cols_clip:
             Q1 = np.percentile(df[col], 25)
@@ -108,25 +108,14 @@ def App_user_Data_Cleaning(df):
             upper_bound = Q3 + (1.5 * IQR)
             
             df[col] = np.clip(df[col], lower_bound, upper_bound)
-        # Removing Outliers    
-        for col in numerical_cols_remove:
-            Q1 = np.percentile(df[col], 25)
-            Q3 = np.percentile(df[col], 75)
-            
-            IQR = Q3 - Q1
-            lower_bound = Q1 - (1.5 * IQR)
-            upper_bound = Q3 + (1.5 * IQR)
-            
-            df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
             
         return df
     Numerical_label_clip=["sessions_per_week","avg_session_duration_min",
                           "feature_clicks_per_session","notifications_opened_per_week","in_app_search_count",
-                          "crash_events_last_30_days","support_tickets_raised","ads_clicked_last_30_days","content_downloads",
-                          "social_shares"]
-    Numerical_label_remove=["daily_active_minutes","engagement_score"]
+                          "crash_events_last_30_days","ads_clicked_last_30_days","content_downloads",
+                          "social_shares","daily_active_minutes","engagement_score"]
     
-    clean_app_df = Outlier_Detection(app_df,Numerical_label_clip,Numerical_label_remove)
+    clean_app_df = Outlier_Detection(app_df,Numerical_label_clip)
 
     clean_app_df.reset_index(drop=True, inplace=True)
 
@@ -143,9 +132,14 @@ def ML_model(Data):
 
     # Fix 1: Use only the 3 strongest behavioral signals
     best_cols = [
-        'engagement_score',
-        'churn_risk_score',
-        'daily_active_minutes'
+        'sessions_per_week', 'avg_session_duration_min',
+        'daily_active_minutes', 'feature_clicks_per_session',
+        'notifications_opened_per_week', 'in_app_search_count',
+        'pages_viewed_per_session', 'crash_events_last_30_days',
+        'support_tickets_raised', 'days_since_last_login',
+        'ads_clicked_last_30_days', 'content_downloads', 'social_shares',
+        'rating_given', 'churn_risk_score', 'engagement_score',
+        'account_age_days'
         ]
     X = ML_App_df[best_cols].copy()
     
@@ -154,17 +148,15 @@ def ML_model(Data):
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    km = KMeans(n_clusters=4, random_state=42, n_init=10)
+    km = KMeans(n_clusters=2, random_state=42, n_init=20,max_iter=500)
     labels = km.fit_predict(X_scaled)
     score = silhouette_score(X_scaled, labels)
 
     ML_App_df['cluster'] = labels
 
     cluster_names = {
-        0: 'At Risk Users',      # high engagement BUT high churn - about to leave
-        1: 'High Churn Risk',    # low engagement + high churn - already disengaged
-        2: 'Casual Users',       # decent engagement, low churn, less daily use
-        3: 'Loyal Active Users'  # most daily active + lowest churn - your best users
+         0: 'Casual Users',
+         1: 'Power Users'
         }
     
     ML_App_df['segment'] = ML_App_df['cluster'].map(cluster_names)
@@ -351,7 +343,14 @@ elif st.session_state.page == "Analysis":
     css_Button()
 
     st.title("App User Behavior Segmentation Analysis")
-    query = """ SELECT engagement_score,churn_risk_score,daily_active_minutes,cluster,segment from user_behavior_details"""
+    query = """ select sessions_per_week, avg_session_duration_min,
+        daily_active_minutes, feature_clicks_per_session,
+        notifications_opened_per_week, in_app_search_count,
+        pages_viewed_per_session, crash_events_last_30_days,
+        support_tickets_raised, days_since_last_login,
+        ads_clicked_last_30_days, content_downloads, social_shares,
+        rating_given, churn_risk_score, engagement_score,
+        account_age_days,cluster,segment from user_behavior_details;"""
         
     df = pd.read_sql(query, db_engine)
     st.dataframe(df, use_container_width=True)
@@ -519,48 +518,27 @@ elif st.session_state.page == "Segment-wise Deep Dive":
             "Select Analysis",
             [
                 "Select Analysis",
-                "At Risk Users",
-                "Loyal Active Users",
-                "High Churn Risk",
-                "Casual Users"
+                "Casual Users",
+                "Power Users"
                 ])
     
-    if topic == "At Risk Users":
-        st.subheader("Segment 1 - At Risk Users")
+    if topic == "Casual Users":
+        st.subheader("Segment 1 - Casual Users")
         query = """
             SELECT * 
             FROM user_behavior_details
-            WHERE segment = "At Risk Users"; """
+            WHERE segment = "Casual Users"; """
         
         df = pd.read_sql(query, db_engine)
         st.dataframe(df, use_container_width=True)
 
-    if topic == "Loyal Active Users":
-        st.subheader("Segment 2 - Loyal Active Users")
+    if topic == "Power Users":
+        st.subheader("Segment 2 - Power Users")
         query = """
             SELECT * FROM user_behavior_details
-            WHERE segment = "Loyal Active Users"; """
+            WHERE segment = "Power Users"; """
         df = pd.read_sql(query, db_engine)
         st.dataframe(df, use_container_width=True)
-
-    if topic == "High Churn Risk":
-        st.subheader("Segment 3 - High Churn Risk")
-        query = """
-            SELECT * 
-            FROM user_behavior_details
-            WHERE segment = "High Churn Risk";"""
-        df = pd.read_sql(query, db_engine)
-        st.dataframe(df, use_container_width=True)
-
-    if topic == "Casual Users":
-        st.subheader("Segment 4 - Casual Users")
-        query = """
-            SELECT * 
-            FROM user_behavior_details
-            WHERE segment = "Casual Users";"""  
-        df = pd.read_sql(query, db_engine)
-        st.dataframe(df, use_container_width=True)
-
 
     if st.button("⬅ Back to Dashboard"):
         st.session_state.page = "Analysis"
