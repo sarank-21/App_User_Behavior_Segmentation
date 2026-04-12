@@ -1,309 +1,267 @@
-# 📲 App User Behavior Segmentation System
-
-## 📖 About the Project
-
-The **App User Behavior Segmentation System** is an end-to-end Unsupervised Machine Learning and data analytics application that segments mobile app users into meaningful behavioral clusters. It combines data preprocessing, unsupervised machine learning, database integration, and interactive dashboards using Streamlit.
-
-The system helps product managers, growth teams, and app developers make **data-driven retention and engagement decisions** by analyzing user activity patterns, churn risk scores, and behavioral signals.
+# 🎯 App User Behavior Segmentation
 
 ---
 
-## 🔨 Development Process
+## 📌 About the Project
 
-### 1. Data Collection
-Imported an App User Behavior dataset containing user demographics, session activity, engagement metrics, notification interactions, device details, and subscription information.
-
-### 2. Data Cleaning & Preprocessing
-- Handled missing values using **median imputation** (e.g., `rating_given`)
-- Detected and treated outliers using the **IQR method**:
-  - **Capping** applied to session, click, notification, and crash-related columns
-  - **Removal** applied to daily_active_minutes and engagement_score
-
-### 3. Feature Selection
-Identified the **3 strongest behavioral signals** for clustering:
-- `engagement_score`
-- `churn_risk_score`
-- `daily_active_minutes`
-
-### 4. Data Transformation
-- Scaled numerical features using **StandardScaler** before clustering to ensure equal feature contribution
-
-### 5. Model Building
-- Applied **KMeans Clustering** with 4 clusters (`n_clusters=4`, `n_init=10`, `random_state=42`)
-- Evaluated cluster quality using the **Silhouette Score**
-
-### 6. Cluster Labeling
-Mapped cluster IDs to meaningful business segment names:
-
-| Cluster | Segment Name       | Description                                    |
-|---------|--------------------|------------------------------------------------|
-| 0       | At Risk Users      | High engagement but high churn — about to leave |
-| 1       | High Churn Risk    | Low engagement + high churn — already disengaged |
-| 2       | Casual Users       | Decent engagement, low churn, lower daily use  |
-| 3       | Loyal Active Users | Most active daily + lowest churn — best users  |
-
-### 7. Database Integration
-- Connected to **MySQL** using **SQLAlchemy**
-- Created the `User_Behavior_Segmentation` database and `User_Behavior_Details` table dynamically
-- Stored the fully processed and segmented dataset for SQL-based analysis
-
-### 8. Dashboard Development
-- Built an interactive UI using **Streamlit**
-- Designed KPI-styled navigation buttons and multi-page flow
-- Added **custom CSS** for hover effects, styled selectboxes, and button animations
-
-### 9. Visualization & Analysis
-Used **Plotly** to create:
-- Pie charts (segment distribution, engagement, daily usage)
-- Bar charts (user count per segment, churn risk, device type, subscription type)
-- Sunburst charts (country-wise segment breakdown)
-- Scatter plots (engagement vs churn risk by segment)
-
-Enabled multiple analytical views:
-- Cluster-wise user identification
-- Customer distribution per segment
-- Behavioral analysis per segment
-- Segment-wise deep dive
-- Country, device, and subscription type analysis
-
-### 10. Performance Optimization
-Implemented caching using Streamlit:
-```python
-@st.cache_data
-@st.cache_resource
-```
-Reduced re-computation and improved speed for data loading and model pipeline.
+This system analyzes mobile app user behavior data to automatically segment users into distinct behavioral groups using unsupervised machine learning. It processes raw usage telemetry — session patterns, engagement metrics, churn signals, and activity features — through a full data science pipeline, then serves the results via an interactive Streamlit dashboard backed by a MySQL database. Product managers, growth teams, and app developers can use this tool to understand their user base and craft targeted retention and engagement strategies.
 
 ---
 
-## ✨ Key Features
+## 🛠️ Development Process
 
-### 🔎 Real-Time User Segmentation
-Automatically clusters app users into 4 behavioral segments using KMeans and key engagement signals.
+### 1. 📥 Data Collection
+- Loaded structured app usage data from a CSV file (`app_user_behavior_dataset.csv`) using `pandas.read_csv()`
+- Dataset contains 25+ behavioral and demographic features per user including session metrics, engagement scores, churn risk, and subscription details
 
-### 📊 Interactive Multi-Page Dashboard
-Provides dynamic visualizations and drill-down insights through an intuitive Streamlit interface.
+### 2. 🧹 Data Cleaning & Preprocessing
+- Handled missing values by imputing `rating_given` with the column median
+- Identified and treated outliers using the **IQR Capping** method across 11 behavioral columns: `sessions_per_week`, `avg_session_duration_min`, `feature_clicks_per_session`, `notifications_opened_per_week`, `in_app_search_count`, `crash_events_last_30_days`, `ads_clicked_last_30_days`, `content_downloads`, `social_shares`, `daily_active_minutes`, `engagement_score`
+- Clipped extreme values to `[Q1 - 1.5×IQR, Q3 + 1.5×IQR]` bounds to preserve data without loss
+- Reset the DataFrame index after cleaning for consistency
 
-### 🧠 Machine Learning Integration
-Utilizes **KMeans Clustering** with **StandardScaler** for accurate and reproducible user grouping.
+### 3. 🔍 Feature Selection
+- Selected 17 high-signal behavioral features for clustering: session frequency, duration, daily activity, feature engagement, notifications, search behavior, page views, crash events, support interactions, login recency, ad clicks, downloads, shares, ratings, churn risk, engagement score, and account age
+- Excluded demographic/categorical features (age, gender, country, device) to ensure the model segments purely on behavioral signals
 
-### 📉 Churn Risk Identification
-Surfaces **High Churn Risk** and **At Risk** users to enable proactive retention strategies.
+### 4. ⚖️ Data Transformation
+- Applied **StandardScaler** from scikit-learn to normalize all 17 features before clustering
+- Ensured each feature contributes equally, preventing scale-dominant features from biasing the KMeans algorithm
 
-### 🧹 Automated Data Preprocessing
-Handles missing values and outliers using IQR-based capping and removal strategies.
+### 5. 🤖 Model Building
+- Trained a **KMeans clustering model** with `n_clusters=2`, `n_init=20`, `max_iter=500`, and `random_state=42` for reproducibility
+- Chose 2 clusters based on the behavioral bimodality observed between light and heavy app users
 
-### 🗄️ Database Integration (MySQL)
-Stores segmented data for scalable querying and SQL-powered analytical reporting.
+### 6. 📏 Model Evaluation
+- Computed the **Silhouette Score** on the scaled feature matrix to assess cluster separation quality
+- Validated that clusters captured meaningful behavioral distinctions before labeling
 
-### 📊 Advanced Visualizations
-Includes pie charts, bar charts, sunburst charts, and scatter plots using Plotly Express and Graph Objects.
+### 7. 🏷️ Segmentation & Labeling
+- Mapped cluster IDs to human-readable segment names:
+  - **Cluster 0 → Casual Users**
+  - **Cluster 1 → Power Users**
+- Added `cluster` (integer) and `segment` (string) columns to the final DataFrame
 
-### 🎨 Custom UI/UX Design
-Enhanced user experience with custom CSS styling for buttons, selectboxes, KPI cards, and hover animations.
+### 8. 🗄️ Database Integration
+- Auto-created a **MySQL** database (`User_Behavior_Segmentation`) and a fully-typed table (`User_Behavior_Details`) on first run using SQLAlchemy + `CREATE DATABASE IF NOT EXISTS`
+- Used a session state flag (`data_inserted`) combined with a row count check to ensure data is inserted **only once**, preventing duplicates across reruns
 
-### ⚡ Optimized Performance
-Uses Streamlit caching to reduce computation time and improve responsiveness on every page load.
+### 9. 🖥️ Dashboard Development
+- Built a **multi-page Streamlit app** using `st.session_state.page` for client-side navigation without Streamlit's native multi-page routing
+- Applied custom CSS for styled buttons (hover animations, rounded cards, branded colors) and selectbox components
 
-### 🔄 Multi-Page Navigation System
-Smooth navigation between:
-- 🏠 Home (Dataset Overview + Segment Distribution)
-- 📶 Analysis Hub (7 analytical views)
+### 10. 📊 Visualization & Analysis
+- Created 7 distinct analysis views spanning: cluster identification, segment distribution, behavioral KPI comparison, deep-dive scatter plots, country sunburst analysis, device-type grouped bars, and subscription-type horizontal bars
+- All charts use **Plotly Express** and **Plotly Graph Objects** with consistent hover labels and layout theming
+
+### 11. ⚡ Performance Optimization
+- Used `@st.cache_data` to cache the full ML pipeline (`get_model_pipeline()`) and raw data load (`load_data()`)
+- Used `@st.cache_resource` to cache the database engine (`setup_database()`) — preventing reconnection on every rerun
+- Combined these strategies to eliminate redundant computation and DB calls
 
 ---
 
-## 🎯 Features
+## 🔎 Key Features
 
-### 🧾 Dataset Overview
-Displays the full processed and segmented dataset on the home page for immediate visibility.
+### 🔎 Behavioral Segmentation Engine
+Automatically clusters app users into **Casual Users** and **Power Users** using KMeans on 17 behavioral signals.
 
-### 🔮 Segment Distribution Pie Chart
-Interactive pie chart showing the proportional distribution of all 4 user segments.
+### 📊 Multi-View Analysis Dashboard
+Seven dedicated analysis pages covering segment distribution, behavioral KPIs, country breakdowns, device types, and subscription plans.
+
+### 🗄️ Persistent MySQL Backend
+All segmented user data is stored in a structured MySQL table with automatic schema creation and single-insertion guard logic.
+
+### ⚡ Fully Cached ML Pipeline
+End-to-end pipeline from CSV ingestion to model output is cached with `@st.cache_data` and `@st.cache_resource` for instant reruns.
+
+### 🌍 Country-Level Segment Analysis
+Interactive sunburst chart reveals how Casual and Power Users are distributed across every country in the dataset.
+
+### 📱 Device Type Analysis
+Grouped bar chart compares segment composition across iOS, Android, and other device types.
+
+### 💳 Subscription Tier Breakdown
+Horizontal bar chart maps Free, Premium, and other subscription types to their segment distribution.
+
+### 🎨 Custom UI Styling
+Hand-crafted CSS delivers card-style buttons with hover lift effects and branded color schemes throughout the app.
+
+### 🔄 Churn & Engagement KPI Tracking
+Dedicated behavioral analysis page surfaces average engagement score, daily active minutes, and churn risk score per segment.
+
+### 🔬 Scatter-Based Deep Dive
+Interactive scatter plot of `engagement_score` vs `churn_risk_score` colored by segment for visual cluster validation.
+
+---
+
+## 📋 Features (Detailed)
+
+### 🏠 Home Dashboard
+- Displays the full `User_Behavior_Details` table loaded directly from MySQL
+- Pie chart shows overall segment distribution (Casual Users vs Power Users)
+- One-click navigation to the Analysis hub
+
+### 📶 Analysis Hub
+- Central navigation page with a styled selectbox offering 7 analysis topics
+- Displays behavioral feature columns alongside cluster and segment labels
+- Back button returns to the home dashboard
 
 ### 👥 Cluster-wise User Identification
-Lists every user along with their assigned segment for individual-level tracking.
+- Table showing each `user_id` mapped to their assigned `segment`
+- Useful for downstream CRM or re-engagement targeting
 
 ### 📊 Customer Distribution per Segment
-Bar chart showing total user counts across segments for volume comparison.
+- SQL aggregate query (`COUNT(*) GROUP BY segment`) displayed as a DataFrame
+- Companion bar chart visualizes the user count split
 
-### 🧠 Behavioral Analysis per Segment
-Side-by-side comparison of:
-- Average engagement score (pie chart)
-- Average daily active minutes (donut chart)
-- Average churn risk (bar chart)
+### 📈 Behavioral Analysis per Segment
+- SQL query computes `AVG(engagement_score)`, `AVG(daily_active_minutes)`, `AVG(churn_risk_score)` per segment
+- Three charts: full pie (engagement), donut pie (daily usage), bar chart (churn risk)
+- Side-by-side column layout for the two pie charts
 
-### 🔍 Segment-wise Deep Dive
-Scatter plot of engagement vs churn risk colored by segment, with filterable tables for each of the 4 segments.
+### 🔬 Segment-wise Deep Dive
+- Scatter plot of engagement vs churn risk, colored by segment
+- Dropdown to filter and view raw records for **Casual Users** or **Power Users** independently
 
 ### 🌍 Country Wise Segment Analysis
-Sunburst chart showing segment distribution broken down by country for geographic insights.
+- Sunburst chart with `country → segment` hierarchy weighted by user count
+- Highlights geographic concentration of Power vs Casual Users
 
 ### 📱 Device Type Segment Analysis
-Grouped bar chart showing how segments are distributed across device types (iOS, Android, Web, etc.).
+- Grouped bar chart comparing segment sizes across device types
+- Annotated with exact user counts using `text="Total_segment"`
 
 ### 💳 Subscription Type Segment Analysis
-Horizontal grouped bar chart showing segment behavior by subscription tier (Free, Premium, etc.).
-
-### 🗃️ Database-Driven Insights
-All analysis pages query the MySQL database in real time for consistent, live reporting.
-
-### 🎨 Interactive UI Experience
-- Styled selectboxes with hover lift effects
-- KPI-styled navigation buttons with smooth transitions
-- Back-to-dashboard navigation on every page
-
-### ⚡ Efficient Data Processing
-- Optimized ML pipeline with `@st.cache_resource`
-- One-time database insertion using `st.session_state` flags
+- Horizontal grouped bar chart mapping subscription tiers to segment sizes
+- Allows product teams to correlate monetization tier with user engagement level
 
 ---
 
-## ⚙️ Tech Stack
+## 🧰 Tech Stack
 
 ### 🖥️ Frontend / UI
-- **Streamlit** – Interactive web application framework for building dashboards
-- **HTML/CSS (Custom Styling)** – Enhances UI components like buttons, selectboxes, and KPI-style cards
+| Library | Purpose |
+|---|---|
+| `streamlit` | Multi-page interactive web app framework |
+| Custom CSS | Hover-animated card buttons, styled selectbox |
 
 ### 🧠 Machine Learning
-- **Scikit-learn** – Model building, training, and evaluation
-- **KMeans Clustering** – Core unsupervised segmentation algorithm
-- **StandardScaler** – Feature normalization before clustering
-- **Silhouette Score** – Cluster quality evaluation metric
+| Library | Purpose |
+|---|---|
+| `scikit-learn` (KMeans) | Unsupervised clustering — user segmentation |
+| `scikit-learn` (StandardScaler) | Feature normalization before clustering |
+| `scikit-learn` (silhouette_score) | Cluster quality evaluation |
 
 ### 📊 Data Processing & Analysis
-- **Pandas** – Data manipulation and SQL query result handling
-- **NumPy** – Numerical computations and IQR-based outlier detection
+| Library | Purpose |
+|---|---|
+| `pandas` | DataFrame operations, SQL querying via `read_sql` |
+| `numpy` | IQR outlier capping, percentile calculation |
 
 ### 📈 Data Visualization
-- **Plotly Express** – Quick interactive charts (bar, pie, scatter, sunburst)
-- **Plotly Graph Objects** – Fine-grained control over chart styling
+| Library | Purpose |
+|---|---|
+| `plotly.express` | Pie, bar, scatter, sunburst, donut charts |
+| `plotly.graph_objects` | Advanced pie chart with `pull` and `textposition` |
 
 ### 🗄️ Database
-- **MySQL** – Data storage and SQL-based querying
-- **SQLAlchemy** – Database connection and engine management
-- **MySQL Connector** – Python-MySQL driver integration
+| Library | Purpose |
+|---|---|
+| `sqlalchemy` | ORM engine creation, schema execution via `text()` |
+| `mysql.connector` | MySQL driver backend for SQLAlchemy |
+| MySQL | Relational storage for all segmented user records |
 
 ### ⚙️ Backend / Core Logic
-- **Python** – Core programming language for the entire application
+| Library | Purpose |
+|---|---|
+| `warnings` | Suppressing non-critical runtime warnings |
 
 ### 🚀 Deployment & Optimization
-**Streamlit Caching**
-- `@st.cache_data` – Optimizes CSV data loading
-- `@st.cache_resource` – Optimizes ML pipeline and database connection
-
-### 🛠️ Development Tools
-- **Jupyter Notebook / VS Code** – Development and experimentation
-- **Git & GitHub** – Version control and project collaboration
+| Decorator | Purpose |
+|---|---|
+| `@st.cache_data` | Caches `load_data()` and `get_model_pipeline()` |
+| `@st.cache_resource` | Caches `setup_database()` DB engine across sessions |
+| `st.session_state` | Client-side page navigation and insert-once flag |
 
 ---
 
-## ⚙️ Setup & Installation
+## 🚀 Setup & Installation
 
-Follow these steps to run the App User Behavior Segmentation System locally:
-
-### 1️⃣ Clone the Repository
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/App-User-Behavior-Segmentation.git
-cd App-User-Behavior-Segmentation
+git clone https://github.com/your-username/app-user-behavior-segmentation.git
+cd app-user-behavior-segmentation
 ```
 
-### 2️⃣ Create a Virtual Environment
+### 2. Create a Virtual Environment
 ```bash
-python -m venv venv
-
-# Activate the environment
 # Windows
+python -m venv venv
 venv\Scripts\activate
 
-# macOS/Linux
+# macOS / Linux
+python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3️⃣ Install Dependencies
+### 3. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
+Key libraries: `streamlit`, `pandas`, `numpy`, `plotly`, `scikit-learn`, `sqlalchemy`, `mysql-connector-python`
 
-Key libraries included:
-- `streamlit`
-- `pandas`, `numpy`
-- `scikit-learn`
-- `plotly`
-- `sqlalchemy`, `mysql-connector-python`
-
-### 4️⃣ Setup MySQL Database
-Ensure MySQL is installed and running locally.
-
-Default connection in code:
+### 4. Setup the Database
+Ensure MySQL is running locally. The app auto-creates the database and table on first launch using:
 ```
 mysql+mysqlconnector://root:0007@localhost/User_Behavior_Segmentation
 ```
+Update the connection string in the code if your MySQL credentials differ.
 
-The app automatically creates:
-- **Database:** `User_Behavior_Segmentation`
-- **Table:** `User_Behavior_Details`
-
-### 5️⃣ Prepare the Dataset
-Place your dataset (`app_user_behavior_dataset.csv`) in the project folder.
-
-Update the path in `load_data()` if needed:
-```python
-df = pd.read_csv(r"path/to/app_user_behavior_dataset.csv")
+### 5. Prepare the Dataset
+Place your dataset at:
 ```
+D:\PROJECTS\Capstone_Project_4\App_User_Behavior_Segmentation\app_user_behavior_dataset.csv
+```
+Or update the `pd.read_csv()` path in `load_data()` to match your local file location.
 
-### 6️⃣ Run the Application
+### 6. Run the Application
 ```bash
 streamlit run app.py
 ```
-Navigate between **Home** and **Analysis** pages using the dashboard buttons.
+The app will open at `http://localhost:8501` in your browser.
 
-### 7️⃣ Optional: Re-run & Clear Cache
-```bash
-streamlit cache clear
-```
-Use this if the dataset or model changes and you need fresh results.
+### 7. Optional: Clear Cache
+If you need to reset the pipeline or re-insert data, clear the Streamlit cache from the top-right menu → **Clear Cache**, then restart the app.
 
 ---
 
-## 🎯 Use Case
+## 💡 Use Cases
 
-The App User Behavior Segmentation System is designed for **product managers, data analysts, growth hackers, and app developers** who need actionable insights on their user base. Key use cases include:
-
-### 1. Identify At-Risk and Churning Users
-Pinpoint users with high churn probability before they leave. Target them with personalized re-engagement campaigns.
-
-### 2. Reward and Retain Loyal Users
-Identify **Loyal Active Users** — your most valuable segment. Design loyalty programs and early feature access for them.
-
-### 3. Convert Casual Users
-Understand the behavioral gap between Casual and Loyal users. Push targeted nudges (notifications, offers) to upgrade engagement.
-
-### 4. Device and Country-Level Strategy
-Analyze which segments dominate by country and device type to focus product improvements and marketing spend geographically.
-
-### 5. Subscription Tier Optimization
-Understand how segments map to subscription types. Use this to design better upgrade paths from Free to Premium tiers.
-
-### 6. Data-Driven Product Decisions
-Use behavioral cluster insights to prioritize features that improve daily active minutes and reduce churn risk across all segments.
+1. **📉 Churn Prevention Targeting** — Identify Casual Users with high churn risk scores and serve them re-engagement campaigns before they lapse.
+2. **💰 Upsell Funnel Design** — Locate Casual Users on Free subscriptions who exhibit rising engagement to target with Premium upgrade prompts.
+3. **🌍 Regional Growth Strategy** — Use the Country Wise analysis to identify markets dominated by Casual Users and allocate localized onboarding improvements.
+4. **📱 Device-Specific Optimization** — Analyze whether one device type skews toward Power Users to prioritize platform-specific feature releases.
+5. **🎯 Power User Loyalty Programs** — Extract Power User IDs from the deep-dive table to enroll them in beta programs, referral incentives, or community channels.
+6. **📊 Executive Reporting** — The KPI page provides at-a-glance average engagement, daily usage, and churn risk per segment for stakeholder presentations.
 
 ---
 
-## 🚀 Future Enhancements
+## 🔮 Future Enhancements
 
-1. **Advanced Clustering Algorithms** — Explore DBSCAN, Agglomerative Clustering, or Gaussian Mixture Models for more nuanced segments.
-2. **Churn Prediction Model** — Add a supervised classification model to predict individual user churn probability.
-3. **Real-Time Data Integration** — Connect with live app analytics platforms (Firebase, Mixpanel) for automatic user updates.
-4. **Personalized User Recommendations** — Suggest tailored in-app actions based on a user's cluster to improve retention.
-5. **Time-Series Trend Analysis** — Track how users migrate between segments over time to spot behavioral shifts.
-6. **Automated Reporting** — Generate scheduled segment health reports for stakeholders.
-7. **Enhanced Model Explainability** — Integrate SHAP values to explain what drives each user's cluster assignment.
-8. **User Feedback Loop** — Incorporate actual churn events and re-engagement responses to continuously refine cluster definitions.
+1. **Multi-Cluster Expansion** — Evaluate 3–5 cluster solutions (using Elbow Method and Silhouette plots) to discover sub-segments like "At-Risk Power Users" or "Occasional Explorers"
+2. **Real-Time Data Ingestion** — Replace static CSV loading with a live database or streaming pipeline (Kafka / Kinesis) for continuously updated segmentation
+3. **Explainability Layer** — Integrate SHAP values to surface which features (e.g., `days_since_last_login`) most strongly drive cluster membership for each user
+4. **Automated PDF Reports** — Add a one-click export button that generates a formatted PDF summary of all analysis views for stakeholder distribution
+5. **Predictive Churn Model** — Layer a supervised classification model (XGBoost or LightGBM) on top of the segments to generate individual-level churn probability scores
+6. **User-Level Drill-Down** — Enable search by `user_id` to view a single user's full behavioral profile alongside their segment assignment and KPI benchmarks
+7. **Time-Series Tracking** — Store historical segment snapshots to track users migrating between Casual and Power segments over time
+8. **Automated Re-Segmentation Scheduler** — Schedule weekly pipeline reruns via Airflow or cron to keep segment labels current as user behavior evolves
 ---
 
-## 📋 Project Overview
+## 📖 Project Overview
 
-The **App User Behavior Segmentation System** is an end-to-end unsupervised machine learning and analytics platform that segments app users into 4 behavioral clusters — **Loyal Active Users**, **Casual Users**, **At Risk Users**, and **High Churn Risk** — based on engagement score, churn risk, and daily active minutes. It combines automated data cleaning, KMeans clustering, MySQL storage, and an interactive Streamlit dashboard with Plotly visualizations to deliver actionable insights on user retention, device preferences, country-level behavior, and subscription patterns. The system empowers product and growth teams to make targeted, data-driven decisions that maximize user retention and lifetime value.
+The App User Behavior Segmentation system is an end-to-end unsupervised machine learning application that classifies mobile app users into **Casual Users** and **Power Users** based on 17 behavioral telemetry features. The pipeline begins with IQR-based outlier capping across 11 numerical columns, followed by StandardScaler normalization, before training a KMeans model (`n_clusters=2`, `n_init=20`, `max_iter=500`) evaluated using the Silhouette Score. All segmented records — 27 columns per user — are persisted in a MySQL database (`User_Behavior_Details`) via SQLAlchemy, with a session-state insertion guard ensuring idempotent writes. The Streamlit dashboard provides seven interactive analysis views — from cluster identification and behavioral KPI comparisons to country-level sunburst charts and subscription-tier breakdowns — all powered by Plotly Express and Graph Objects with custom CSS styling. By combining behavioral segmentation with rich visual analytics, the system gives product and growth teams an actionable lens into who their users are and how to engage them more effectively.
 
 ---
 
